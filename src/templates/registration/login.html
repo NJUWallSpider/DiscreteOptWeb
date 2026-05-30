@@ -9,7 +9,7 @@
     </h2>
     {% if activation_error %}
     <div class="ui red message">
-        {{ activation_error }} or click <a href="{% url 'accounts:resend_activation' %}">here</a> to send the activation email again
+        {{ activation_error }}
     </div>
     {% endif %}
     <div class="ui stacked segment">

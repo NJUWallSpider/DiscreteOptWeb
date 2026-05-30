@@ -22,6 +22,13 @@ class CompetitionTests(APITestCase):
         PhaseFactory(competition=self.comp, leaderboard=self.leaderboard)
         ColumnFactory(leaderboard=self.leaderboard)
 
+    def test_non_staff_user_cannot_create_competition(self):
+        self.client.login(username='other_user', password='other')
+
+        resp = self.client.post(reverse('competition-list'), {}, format='json')
+
+        assert resp.status_code == 403
+
     def _prepare_competition_data(self, url):
         resp = self.client.get(url)
         data = resp.data

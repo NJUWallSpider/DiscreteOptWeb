@@ -10,7 +10,7 @@ from queues.models import Queue
 
 class QueuesAPITestCase(TestCase):
     def setUp(self):
-        self.user = UserFactory(username='user')
+        self.user = UserFactory(username='user', is_staff=True)
         self.admin = UserFactory(username='admin', super_user=True)
         self.norm = UserFactory(username='norm')
         self.collab = UserFactory(username='collab')
@@ -59,6 +59,21 @@ class QueuesAPITestCase(TestCase):
         assert Queue.objects.count() == 2
         assert response.status_code == 201
 
+    def test_non_staff_user_cannot_access_queue_api(self):
+        self.client.login(username='norm', password='test')
+
+        response = self.client.get(reverse('queues-list'))
+        assert response.status_code == 403
+
+        response, rabbit_create_queue_called = self.queue_api_request_with_mock(
+            'post',
+            'queues-list',
+            {},
+            self._get_test_update_data(return_id=False)
+        )
+        assert not rabbit_create_queue_called
+        assert response.status_code == 403
+
     # --------- Permission tests ---------
 
     def test_organizer_can_perform_all_operations(self):
@@ -91,7 +106,7 @@ class QueuesAPITestCase(TestCase):
             self._get_test_update_data()
         )
         assert not rabbit_create_queue_called
-        assert response.status_code == 404
+        assert response.status_code == 403
         assert Queue.objects.get(pk=self.created_queue.id).name != 'A BRAND NEW NAME'
 
         response, rabbit_create_queue_called = self.queue_api_request_with_mock(
@@ -100,7 +115,7 @@ class QueuesAPITestCase(TestCase):
             {'pk': self.created_queue.id},
         )
 
-        assert response.status_code == 404
+        assert response.status_code == 403
         assert Queue.objects.filter(pk=self.created_queue.id).exists()
 
     def test_collab_cannot_delete_or_edit_queue(self):

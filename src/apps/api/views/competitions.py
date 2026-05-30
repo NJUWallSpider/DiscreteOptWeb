@@ -14,7 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import get_object_or_404
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework_csv.renderers import CSVRenderer
@@ -186,7 +186,7 @@ class CompetitionViewSet(ModelViewSet):
         if self.action in ['update', 'partial_update', 'destroy']:
             self.permission_classes = [IsOrganizerOrCollaborator]
         elif self.action in ['create']:
-            self.permission_classes = [IsAuthenticated]
+            self.permission_classes = [IsAdminUser]
         elif self.action in ['retrieve', 'list']:
             self.permission_classes = [AllowAny]
         return [permission() for permission in self.permission_classes]

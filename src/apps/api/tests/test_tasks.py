@@ -52,8 +52,8 @@ from factories import UserFactory, DataFactory
 
 class TestUploadTask(APITestCase):
     def setUp(self):
-        self.user = UserFactory(username='user', password='password')
-        self.user_low_quota = UserFactory(username='user_low_quota', password='password_low_quota', quota=0)
+        self.user = UserFactory(username='user', password='password', is_staff=True)
+        self.user_low_quota = UserFactory(username='user_low_quota', password='password_low_quota', quota=0, is_staff=True)
         self.user2 = UserFactory(username='user2', password='password2')
 
         uuid1 = "96187a93-94ea-40a1-b394-af2e7e3edb2e"
@@ -68,6 +68,16 @@ class TestUploadTask(APITestCase):
         self.reference_data = DataFactory(created_by=self.user, type='reference_data', key=uuid4)
 
         self.ingestion_program_from_user2 = DataFactory(created_by=self.user2, type='ingestion_program', key=uuid5)
+
+    def test_non_staff_user_cannot_upload_task(self):
+        student = UserFactory(username='student', password='student')
+        self.client.login(username=student.username, password='student')
+
+        file_path = os.path.join(os.path.dirname(__file__), 'upload_task_test_files', 'valid_task_with_keys.zip')
+        with open(file_path, 'rb') as zip_file:
+            response = self.client.post(reverse('tasks:upload_task'), {'file': zip_file}, format='multipart')
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_file_not_uploaded(self):
         self.client.login(username=self.user.username, password='password')

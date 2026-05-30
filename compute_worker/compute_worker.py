@@ -77,6 +77,41 @@ class Settings:
             logger.warning(f"Failed to parse boolean from '{val}': {e}")
             return val
 
+    @staticmethod
+    def to_int(val, default=None):
+        try:
+            if val is None or str(val).strip() == "":
+                return default
+            return int(str(val).strip())
+        except Exception as e:
+            logger.warning(f"Failed to parse integer from '{val}': {e}")
+            return default
+
+    @staticmethod
+    def to_float(val, default=None):
+        try:
+            if val is None or str(val).strip() == "":
+                return default
+            return float(str(val).strip())
+        except Exception as e:
+            logger.warning(f"Failed to parse float from '{val}': {e}")
+            return default
+
+    @staticmethod
+    def to_list(val, default=None):
+        if val is None:
+            return list(default or [])
+        items = [item.strip() for item in str(val).split(",")]
+        return [item for item in items if item] or list(default or [])
+
+    @staticmethod
+    def build_tmpfs(paths, size):
+        mount_options = ["rw", "nosuid", "nodev"]
+        if size:
+            mount_options.append(f"size={size}")
+        options = ",".join(mount_options)
+        return {path: options for path in paths}
+
     # Directories
     # NOTE: we need to pass this directory to docker/podman so it knows where to store things!
     HOST_DIRECTORY = get("HOST_DIRECTORY", "/tmp/codabench/")
@@ -108,6 +143,26 @@ class Settings:
     COMPETITION_CONTAINER_NETWORK_DISABLED = to_bool(get("COMPETITION_CONTAINER_NETWORK_DISABLED", "False"))
     COMPETITION_CONTAINER_HTTP_PROXY = get("COMPETITION_CONTAINER_HTTP_PROXY", "")
     COMPETITION_CONTAINER_HTTPS_PROXY = get("COMPETITION_CONTAINER_HTTPS_PROXY", "")
+    COMPETITION_CONTAINER_FORCE_PULL = to_bool(get("COMPETITION_CONTAINER_FORCE_PULL", "False"))
+    COMPETITION_CONTAINER_READ_ONLY = to_bool(get("COMPETITION_CONTAINER_READ_ONLY", "False"))
+    COMPETITION_CONTAINER_CPUS = to_float(get("COMPETITION_CONTAINER_CPUS", "4"), 4.0)
+    COMPETITION_CONTAINER_NANO_CPUS = (
+        int(COMPETITION_CONTAINER_CPUS * 1_000_000_000)
+        if COMPETITION_CONTAINER_CPUS and COMPETITION_CONTAINER_CPUS > 0
+        else None
+    )
+    COMPETITION_CONTAINER_MEMORY_LIMIT = get("COMPETITION_CONTAINER_MEMORY_LIMIT", "8g")
+    COMPETITION_CONTAINER_PIDS_LIMIT = to_int(get("COMPETITION_CONTAINER_PIDS_LIMIT", "256"), 256)
+    COMPETITION_CONTAINER_SHM_SIZE = get("COMPETITION_CONTAINER_SHM_SIZE", "1g")
+    COMPETITION_CONTAINER_TMPFS_MOUNTS = to_list(
+        get("COMPETITION_CONTAINER_TMPFS_MOUNTS", "/tmp,/var/tmp,/run"),
+        default=["/tmp", "/var/tmp", "/run"],
+    )
+    COMPETITION_CONTAINER_TMPFS_SIZE = get("COMPETITION_CONTAINER_TMPFS_SIZE", "2g")
+    COMPETITION_CONTAINER_TMPFS = build_tmpfs(
+        COMPETITION_CONTAINER_TMPFS_MOUNTS,
+        COMPETITION_CONTAINER_TMPFS_SIZE,
+    )
 
     CODALAB_IGNORE_CLEANUP_STEP = to_bool(get("CODALAB_IGNORE_CLEANUP_STEP"))
 
@@ -160,7 +215,11 @@ configure_logging(
 logger.info(
     f"Using {Settings.CONTAINER_ENGINE_EXECUTABLE} "
     f"{'with GPU capabilities: ' + Settings.GPU_DEVICE if Settings.USE_GPU else 'without GPU capabilities'}. "
-    f"Network disabled for the competition container is set to {Settings.COMPETITION_CONTAINER_NETWORK_DISABLED}"
+    f"Network disabled for the competition container is set to {Settings.COMPETITION_CONTAINER_NETWORK_DISABLED}. "
+    f"Sandbox limits: cpus={Settings.COMPETITION_CONTAINER_CPUS}, "
+    f"memory={Settings.COMPETITION_CONTAINER_MEMORY_LIMIT}, "
+    f"pids={Settings.COMPETITION_CONTAINER_PIDS_LIMIT}, "
+    f"read_only={Settings.COMPETITION_CONTAINER_READ_ONLY}"
 )
 
 # Intializing client
@@ -643,6 +702,20 @@ class Run:
             logger.exception(f"Failed to update submission status to {status}: {e}")
 
     def _get_container_image(self, image_name):
+        if not Settings.COMPETITION_CONTAINER_FORCE_PULL:
+            try:
+                client.inspect_image(image_name)
+                logger.info("Using local image: {}".format(image_name))
+                return
+            except docker.errors.ImageNotFound:
+                logger.info("Image {} not found locally. Pulling it.".format(image_name))
+            except docker.errors.APIError as image_error:
+                logger.warning(
+                    "Could not inspect local image {} before pull: {}".format(
+                        image_name, image_error
+                    )
+                )
+
         logger.info("Running pull for image: {}".format(image_name))
         retries, max_retries = (0, 3)
         while retries < max_retries:
@@ -828,6 +901,11 @@ class Run:
                 binds=volumes_config,
                 userns_mode="host",
                 security_opt=security_options,
+                mem_limit=Settings.COMPETITION_CONTAINER_MEMORY_LIMIT,
+                nano_cpus=Settings.COMPETITION_CONTAINER_NANO_CPUS,
+                pids_limit=Settings.COMPETITION_CONTAINER_PIDS_LIMIT,
+                shm_size=Settings.COMPETITION_CONTAINER_SHM_SIZE,
+                tmpfs=Settings.COMPETITION_CONTAINER_TMPFS,
                 device_requests=[
                     {
                         "Driver": "cdi",
@@ -842,6 +920,11 @@ class Run:
                 binds=volumes_config,
                 userns_mode="host",
                 security_opt=security_options,
+                mem_limit=Settings.COMPETITION_CONTAINER_MEMORY_LIMIT,
+                nano_cpus=Settings.COMPETITION_CONTAINER_NANO_CPUS,
+                pids_limit=Settings.COMPETITION_CONTAINER_PIDS_LIMIT,
+                shm_size=Settings.COMPETITION_CONTAINER_SHM_SIZE,
+                tmpfs=Settings.COMPETITION_CONTAINER_TMPFS,
             )
 
         # Creating container
@@ -852,6 +935,7 @@ class Run:
             name=container_name,
             host_config=host_config,
             detach=False,
+            read_only=Settings.COMPETITION_CONTAINER_READ_ONLY,
             volumes=volumes_host,
             command=command,
             working_dir="/app/program",

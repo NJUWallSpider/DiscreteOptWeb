@@ -1,4 +1,3 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import HttpResponseRedirect, Http404
@@ -8,6 +7,7 @@ from datasets.models import Data
 from utils.data import make_url_sassy
 from api.serializers.datasets import DatasetSerializer
 from competitions.models import Competition, CompetitionParticipant
+from utils.permissions import StaffUserRequiredMixin
 
 
 def user_can_download(user, data):
@@ -15,7 +15,7 @@ def user_can_download(user, data):
         return True
     if not user.is_authenticated:
         return False
-    if data.created_by == user:
+    if data.created_by == user or user.is_staff:
         return True
 
     # Organizers (creator + collaborators) can download any dataset in their competition
@@ -71,7 +71,7 @@ def user_can_download(user, data):
     return False
 
 
-class DataManagement(LoginRequiredMixin, TemplateView):
+class DataManagement(StaffUserRequiredMixin, TemplateView):
     template_name = 'datasets/management.html'
 
 
@@ -79,7 +79,7 @@ class DatasetsPublic(TemplateView):
     template_name = 'datasets/public.html'
 
 
-class DatasetCreate(LoginRequiredMixin, TemplateView):
+class DatasetCreate(StaffUserRequiredMixin, TemplateView):
     template_name = 'datasets/create.html'
 
 

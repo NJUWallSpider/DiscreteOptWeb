@@ -9,9 +9,10 @@
     </div>
     {% endif %}
     <h2 class="ui blue centered header">
-        Sign Up
+        Request An Account
     </h2>
     <div class="ui stacked segment">
+        <p>Your registration will be reviewed by an administrator before you can log in.</p>
         <form class="ui form" method="post">
             {% csrf_token %}
             <div class="field">
@@ -38,11 +39,10 @@
                     <i class="envelope icon"></i>
                     <input type="email"
                            name="email"
-                           placeholder="email"
+                           placeholder="email (optional)"
                            id="id_email"
                            value="{{ form.email.value|default:''}}"
-                           maxlength="{{ form.email.field.max_length }}"
-                           required>
+                           maxlength="{{ form.email.field.max_length }}">
                 </div>
             </div>
             {% if form.email.errors %}

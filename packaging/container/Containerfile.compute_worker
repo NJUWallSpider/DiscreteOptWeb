@@ -18,4 +18,4 @@ RUN uv sync --frozen
 COPY src/settings/logs_loguru.py /.venv/bin
 
 ENTRYPOINT ["/bin/bash", "-c"]
-CMD ["celery -A compute_worker worker -l info -Q compute-worker -n compute-worker@$HOSTNAME --concurrency=1"]
+CMD ["celery -A compute_worker worker -l info -Q compute-worker -n compute-worker@$HOSTNAME --concurrency=${COMPUTE_WORKER_CONCURRENCY:-1}"]

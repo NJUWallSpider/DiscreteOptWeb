@@ -4,6 +4,7 @@ from queues.models import Queue
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import SearchFilter
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -14,6 +15,7 @@ from api.serializers import queues as serializers
 class QueueViewSet(ModelViewSet):
     queryset = Queue.objects.all()
     serializer_class = serializers.QueueListSerializer
+    permission_classes = (IsAdminUser,)
     filterset_fields = ('owner', 'is_public', 'name')
     filter_backends = (DjangoFilterBackend, SearchFilter)
     search_fields = ('name',)

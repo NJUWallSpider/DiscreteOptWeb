@@ -111,6 +111,22 @@ class SubmissionViewSet(ModelViewSet):
         else:
             return SubmissionSerializer
 
+    def _get_bulk_action_queryset(self, requested_ids):
+        qs = super().get_queryset().filter(pk__in=requested_ids)
+        if self.request.user.is_superuser or self.request.user.is_staff:
+            return qs
+
+        allowed_qs = qs.filter(
+            Q(owner=self.request.user) |
+            Q(phase__competition__created_by=self.request.user) |
+            Q(phase__competition__collaborators__in=[self.request.user.pk])
+        ).distinct()
+
+        if allowed_qs.count() != qs.count():
+            raise PermissionDenied("Request contained submissions you do not have authorization for")
+
+        return allowed_qs
+
     def get_queryset(self):
         # On GETs lets optimize the query to reduce DB calls
         qs = super().get_queryset()
@@ -172,19 +188,10 @@ class SubmissionViewSet(ModelViewSet):
                 pks = list(self.request.data)
             except TypeError as err:
                 raise ValidationError(f'Error {err}')
-            qs = qs.filter(pk__in=pks)
-            if not self.request.user.is_superuser and not self.request.user.is_staff:
-                if qs.filter(
-                    Q(owner=self.request.user) |
-                    Q(phase__competition__created_by=self.request.user) |
-                    Q(phase__competition__collaborators__in=[self.request.user.pk])
-                ) is not qs:
-                    ValidationError("Request Contained Submissions you don't have authorization for")
+
+            qs = self._get_bulk_action_queryset(pks)
             if self.action in ['re_run_many_submissions']:
-                print(f'debug {qs}')
-                print(f'debug {qs.first().status}')
                 qs = qs.filter(status__in=[Submission.FINISHED, Submission.FAILED, Submission.CANCELLED])
-                print(f'debug {qs}')
         return qs
 
     def create(self, request, *args, **kwargs):

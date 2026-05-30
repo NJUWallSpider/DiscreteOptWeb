@@ -1,12 +1,92 @@
-from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-from django.views.generic import TemplateView
-from django.db.models import Q
+import copy
+import os
 
-from competitions.models import Submission
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from django.db.models import Q
+from django.urls import reverse
+from django.views.generic import TemplateView
+
+from competitions.models import Competition, Submission
 from announcements.models import Announcement, NewsPost
 
 from django.conf import settings
 from utils.data import pretty_bytes
+from utils.permissions import StaffUserRequiredMixin
+
+
+DEFAULT_HOME_ASSIGNMENTS = [
+    {
+        "title": "Assignment 3: Graph Coloring Problem",
+        "description": "Due: May 15, 2026, 11:59 PM • Max Score: 100 pts",
+        "status_label": "Active",
+        "status_tone": "active",
+        "icon": "keyboard outline",
+    },
+    {
+        "title": "Assignment 2: Traveling Salesperson (TSP)",
+        "description": "Due: April 30, 2026, 11:59 PM • Max Score: 100 pts",
+        "status_label": "Active",
+        "status_tone": "active",
+        "icon": "keyboard outline",
+    },
+    {
+        "title": "Assignment 1: Knapsack Problem",
+        "description": "Ended: Mar 10, 2026 • Graded",
+        "status_label": "Closed",
+        "status_tone": "closed",
+        "icon": "check circle outline",
+    },
+]
+
+DEFAULT_HOME_RESOURCES = [
+    {
+        "title": "Course Syllabus",
+        "icon": "file pdf outline",
+        "color": "#db2828",
+        "url_env": "COURSE_SYLLABUS_URL",
+    },
+    {
+        "title": "Lecture Slides & Notes",
+        "icon": "file powerpoint outline",
+        "color": "#f2711c",
+        "url_env": "COURSE_SLIDES_URL",
+    },
+    {
+        "title": "Starter Code Templates",
+        "icon": "github",
+        "color": "#1b1c1d",
+        "url_env": "COURSE_STARTER_CODE_URL",
+    },
+    {
+        "title": "Discussion Forum",
+        "icon": "comments outline",
+        "color": "#2185d0",
+        "url_env": "COURSE_FORUM_URL",
+    },
+]
+
+
+def build_home_assignments():
+    assignments = copy.deepcopy(DEFAULT_HOME_ASSIGNMENTS)
+
+    for assignment in assignments:
+        competition = Competition.objects.filter(
+            published=True,
+            title__iexact=assignment["title"],
+        ).first()
+        assignment["url"] = competition.get_absolute_url() if competition else reverse("competitions:public")
+
+    return assignments
+
+
+def build_home_resources():
+    resources = copy.deepcopy(DEFAULT_HOME_RESOURCES)
+    shared_box_url = os.environ.get("COURSE_RESOURCES_BOX_URL", "").strip()
+
+    for resource in resources:
+        resource["url"] = os.environ.get(resource["url_env"], "").strip() or shared_box_url
+
+    return resources
 
 
 class HomeView(TemplateView):
@@ -21,6 +101,8 @@ class HomeView(TemplateView):
         news_posts = NewsPost.objects.all().order_by('-id')
         context['news_posts'] = news_posts
         context['CONTACT_EMAIL'] = settings.CONTACT_EMAIL
+        context['home_assignments'] = build_home_assignments()
+        context['course_resources'] = build_home_resources()
 
         return context
 
@@ -33,7 +115,7 @@ class SearchView(TemplateView):
     template_name = 'search/form.html'
 
 
-class ServerStatusView(TemplateView):
+class ServerStatusView(StaffUserRequiredMixin, TemplateView):
     template_name = 'pages/server_status.html'
 
     def get_context_data(self, *args, **kwargs):
@@ -112,5 +194,5 @@ class ServerStatusView(TemplateView):
         return context
 
 
-class MonitorQueuesView(TemplateView):
+class MonitorQueuesView(StaffUserRequiredMixin, TemplateView):
     template_name = 'pages/monitor_queues.html'

@@ -7,9 +7,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.decorators import api_view, action
 from rest_framework.filters import SearchFilter
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import AllowAny
 
 from api.pagination import BasicPagination, LargePagination
 from api.serializers import datasets as serializers
@@ -20,6 +20,7 @@ from utils.data import make_url_sassy, pretty_bytes, gb_to_bytes
 
 class DataViewSet(ModelViewSet):
     queryset = Data.objects.all()
+    permission_classes = (IsAdminUser,)
     filter_backends = (DjangoFilterBackend, SearchFilter)
     filterset_fields = ('type', 'name', 'key', 'was_created_by_competition', 'is_public')
     search_fields = ('file_name', 'name', 'description', 'key', 'competition__title',)

@@ -72,12 +72,18 @@ def export_as_json(modeladmin, request, queryset):
     return HttpResponse(json.dumps(email_list), content_type="application/json")
 
 
+@admin.display(description="Approve selected users")
+def approve_selected_users(modeladmin, request, queryset):
+    queryset.update(is_active=True)
+
+
 class UserExpansion(UserAdmin):
     # The following two lines are needed for Django-su:
     change_form_template = "admin/auth/user/change_form.html"
     change_list_template = "admin/auth/user/change_list.html"
     search_fields = ["id", "username", "email"]
     list_filter = [
+        "is_active",
         "is_staff",
         "is_superuser",
         "is_deleted",
@@ -90,13 +96,14 @@ class UserExpansion(UserAdmin):
         "username",
         "email",
         "quota",
+        "is_active",
         "is_staff",
         "is_superuser",
         "is_banned",
     ]
     list_display_links = ["id", "username"]
     raw_id_fields = ["oidc_organization", "groups"]
-    actions = [export_as_csv, export_as_json]
+    actions = [approve_selected_users, export_as_csv, export_as_json]
     fieldsets = [
         (
             None,

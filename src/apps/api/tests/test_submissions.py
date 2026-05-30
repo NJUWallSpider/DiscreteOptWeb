@@ -121,6 +121,32 @@ class SubmissionAPITests(APITestCase):
         assert resp.status_code == 204
         assert not Submission.objects.filter(pk=self.existing_submission.pk).exists()
 
+    def test_cannot_bulk_delete_submission_you_do_not_own(self):
+        self.client.force_login(self.other_user)
+
+        resp = self.client.delete(
+            reverse('submission-delete-many'),
+            [self.existing_submission.pk],
+            format='json',
+        )
+
+        assert resp.status_code == 403
+        assert Submission.objects.filter(pk=self.existing_submission.pk).exists()
+
+    def test_cannot_bulk_rerun_submission_you_do_not_own(self):
+        self.existing_submission.status = Submission.FINISHED
+        self.existing_submission.save(update_fields=['status'])
+        self.client.force_login(self.other_user)
+
+        resp = self.client.post(
+            reverse('submission-re-run-many-submissions'),
+            [self.existing_submission.pk],
+            format='json',
+        )
+
+        assert resp.status_code == 403
+        assert Submission.objects.filter(parent=self.existing_submission).count() == 0
+
     def test_super_user_can_delete_submission_you_created(self):
         url = reverse('submission-detail', args=(self.existing_submission.pk,))
 

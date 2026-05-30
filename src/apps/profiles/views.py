@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.db.models import Q
 from django.contrib.sites.shortcuts import get_current_site
-from django.core.mail import EmailMessage, EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives
 from django.http import Http404
 from django.shortcuts import render, redirect
 from django.contrib.auth import views as auth_views
@@ -20,15 +20,16 @@ from django.views.generic import DetailView, TemplateView
 from api.serializers.profiles import UserSerializer, OrganizationDetailSerializer, OrganizationEditSerializer, \
     UserNotificationSerializer
 from api.serializers.competitions import CompetitionSerializerSimple
-from .forms import SignUpForm, LoginForm, ActivationForm
+from .forms import SignUpForm, LoginForm
 from .models import User, DeletedUser, Organization, Membership
 from oidc_configurations.models import Auth_Organization
-from .tokens import account_activation_token, account_deletion_token
+from .tokens import account_deletion_token
 from competitions.models import Competition
 from datasets.models import Data
 from tasks.models import Task
 from forums.models import Post
 from utils.email import codalab_send_mail
+from utils.permissions import StaffUserRequiredMixin
 
 
 class LoginView(auth_views.LoginView):
@@ -89,39 +90,8 @@ class UserDetailView(LoginRequiredMixin, DetailView):
 
 
 def activate(request, uidb64, token):
-    try:
-        uid = force_str(urlsafe_base64_decode(uidb64))
-        user = User.objects.get(pk=uid)
-    except User.DoesNotExist:
-        user = None
-        messages.error(request, f"User not found. Please sign up again.")
-        return redirect('accounts:signup')
-    if user is not None and account_activation_token.check_token(user, token):
-        user.is_active = True
-        user.save()
-        messages.success(request, f'Your account is fully setup! Please login.')
-        return redirect('accounts:login')
-    else:
-        messages.error(request, f"Activation link is invalid or expired. Please double check your link.")
-        return redirect('accounts:resend_activation')
-    return redirect('pages:home')
-
-
-def activateEmail(request, user, to_email):
-    mail_subject = 'Activate your user account.'
-    message = render_to_string('profiles/emails/template_activate_account.html', {
-        'username': user.username,
-        'domain': settings.DOMAIN_NAME,
-        'uid': urlsafe_base64_encode(force_bytes(user.pk)),
-        'token': account_activation_token.make_token(user),
-        'protocol': 'https' if request.is_secure() else 'http'
-    })
-    email = EmailMessage(mail_subject, message, to=[to_email])
-    if email.send():
-        messages.success(request, f'Dear {user.username}, please go to your email {to_email} inbox and click on \
-            the activation link to confirm and complete the registration. *Note: Check your spam folder.')
-    else:
-        messages.error(request, f'Problem sending confirmation email to {to_email}, check if you typed it correctly.')
+    messages.info(request, "Email activation is disabled. Please wait for an administrator to approve your account.")
+    return redirect('accounts:login')
 
 
 def send_delete_account_confirmation_mail(request, user):
@@ -218,24 +188,22 @@ def sign_up(request):
         form = SignUpForm(request.POST)
         if form.is_valid():
             # Check if the email is in the DeletedUser table
-            email = form.cleaned_data.get('email').lower()
-            if DeletedUser.objects.filter(email=email).exists():
+            email = (form.cleaned_data.get('email') or '').strip().lower()
+            if email and DeletedUser.objects.filter(email=email).exists():
                 messages.error(request, "This email has been previously deleted and cannot be used.")
                 context['form'] = form
             else:
                 # Update the email field to lowercase before saving
-                form.cleaned_data['email'] = email
+                form.cleaned_data['email'] = email or None
                 user = form.save(commit=False)  # Get the user instance without saving
-                user.email = email  # Ensure email is stored in lowercase
-                user.is_active = False  # Set user as inactive
+                user.email = email or None  # Store blank emails as NULL to avoid uniqueness conflicts
+                user.is_active = False
                 user.save()  # Save user instance with updated email
 
-                # Authenticate and send activation email
-                username = form.cleaned_data.get('username')
-                raw_password = form.cleaned_data.get('password1')
-                user = authenticate(username=username, password=raw_password)
-                activateEmail(request, user, email)
-
+                messages.success(
+                    request,
+                    f"Registration submitted for {user.username}. An administrator will review and approve your account."
+                )
                 return redirect('pages:home')
         else:
             context['form'] = form
@@ -246,28 +214,8 @@ def sign_up(request):
 
 
 def resend_activation(request):
-    context = {}
-    if request.method == 'POST':
-        form = ActivationForm(request.POST)
-        if form.is_valid():
-
-            email = form.cleaned_data.get('email').lower()
-            user = User.objects.filter(email=email).first()
-
-            if user and not user.is_active:
-                activateEmail(request, user, email)
-                return redirect('pages:home')
-            else:
-                if not user:
-                    messages.error(request, "No account found with this email.")
-                elif user.is_active:
-                    messages.error(request, "This account is already active.")
-        else:
-            context['form'] = form
-
-    if not context.get('form'):
-        context['form'] = ActivationForm()
-    return render(request, 'registration/resend_activation.html', context)
+    messages.info(request, "Accounts are approved by an administrator. Please wait for approval before logging in.")
+    return redirect('accounts:login')
 
 
 def log_in(request):
@@ -305,7 +253,7 @@ def log_in(request):
                         else:
                             return redirect(next)
                     else:
-                        context['activation_error'] = "Your account is not activated. Please check your email for the activation link"
+                        context['activation_error'] = "Your account is awaiting administrator approval."
                 else:
                     messages.error(request, "Wrong Credentials!")
         else:
@@ -405,7 +353,7 @@ class UserNotificationEdit(LoginRequiredMixin, DetailView):
         return context
 
 
-class OrganizationCreateView(LoginRequiredMixin, TemplateView):
+class OrganizationCreateView(StaffUserRequiredMixin, TemplateView):
     template_name = 'profiles/organization_create.html'
 
 

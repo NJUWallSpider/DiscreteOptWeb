@@ -13,6 +13,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.filters import SearchFilter
+from rest_framework.permissions import IsAdminUser
 from django_filters.rest_framework import DjangoFilterBackend
 
 from api.pagination import BasicPagination
@@ -29,6 +30,7 @@ from utils.data import pretty_bytes, gb_to_bytes
 class TaskViewSet(ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = serializers.TaskSerializer
+    permission_classes = (IsAdminUser,)
     filterset_fields = ('created_by', 'is_public')
     filter_backends = (DjangoFilterBackend, SearchFilter)
     search_fields = ('name', 'description',)

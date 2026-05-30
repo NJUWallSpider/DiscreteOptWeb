@@ -1,11 +1,11 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404
 from django.views.generic import TemplateView, DetailView
 
 from .models import Competition, CompetitionParticipant
+from utils.permissions import StaffUserRequiredMixin
 
 
-class CompetitionManagement(LoginRequiredMixin, TemplateView):
+class CompetitionManagement(StaffUserRequiredMixin, TemplateView):
     template_name = 'competitions/management.html'
 
 
@@ -13,11 +13,11 @@ class CompetitionPublic(TemplateView):
     template_name = 'competitions/public.html'
 
 
-class CompetitionCreateForm(LoginRequiredMixin, TemplateView):
+class CompetitionCreateForm(StaffUserRequiredMixin, TemplateView):
     template_name = 'competitions/form.html'
 
 
-class CompetitionUpdateForm(LoginRequiredMixin, DetailView):
+class CompetitionUpdateForm(StaffUserRequiredMixin, DetailView):
     template_name = 'competitions/form.html'
     queryset = Competition.objects.all()
 
@@ -47,7 +47,7 @@ class CompetitionUpdateForm(LoginRequiredMixin, DetailView):
         raise Http404()
 
 
-class CompetitionUpload(LoginRequiredMixin, TemplateView):
+class CompetitionUpload(StaffUserRequiredMixin, TemplateView):
     template_name = 'competitions/upload.html'
 
 

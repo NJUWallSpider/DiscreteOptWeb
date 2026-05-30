@@ -20,7 +20,7 @@ faker = Factory.create()
 
 class DatasetAPITests(APITestCase):
     def setUp(self):
-        self.creator = UserFactory(username='creator', password='creator')
+        self.creator = UserFactory(username='creator', password='creator', is_staff=True)
         self.existing_dataset = DataFactory(created_by=self.creator, name="Test!", file_size=1000)
 
     def test_dataset_api_checks_duplicate_names_for_same_user(self):
@@ -168,6 +168,7 @@ class DatasetDownloadTests(TestCase):
     def setUp(self):
         self.owner = UserFactory(username="owner")
         self.other_user = UserFactory(username="other")
+        self.staff_user = UserFactory(username="staff", is_staff=True)
         self.client.force_login(self.owner)
 
         self.public_dataset = DataFactory(
@@ -217,10 +218,31 @@ class DatasetDownloadTests(TestCase):
         # Should return 404 (access denied)
         self.assertEqual(response.status_code, 404)
 
+    @patch("datasets.views.make_url_sassy")
+    def test_download_private_dataset_as_staff(self, mock_make_url_sassy):
+        mock_make_url_sassy.return_value = "http://codebench-storage/private_dataset.zip"
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(reverse("datasets:download_by_pk", args=[self.private_dataset.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://codebench-storage/private_dataset.zip")
+
+    @patch("datasets.views.make_url_sassy")
+    def test_download_by_key_respects_permissions(self, mock_make_url_sassy):
+        mock_make_url_sassy.return_value = "http://codebench-storage/private_dataset.zip"
+
+        response = self.client.get(reverse("datasets:download", args=[self.private_dataset.key]))
+        self.assertEqual(response.status_code, 302)
+
+        self.client.force_login(self.other_user)
+        response = self.client.get(reverse("datasets:download", args=[self.private_dataset.key]))
+        self.assertEqual(response.status_code, 404)
+
 
 class DatasetCreateTests(APITestCase):
     def setUp(self):
-        self.user = UserFactory(username='creator', password='creator')
+        self.user = UserFactory(username='creator', password='creator', is_staff=True)
         self.client.login(username='creator', password='creator')
 
     @patch("api.views.datasets.make_url_sassy")  # Replaces the real `make_url_sassy` function in this test only
@@ -320,10 +342,22 @@ class DatasetCreateTests(APITestCase):
         })
         self.assertEqual(resp.status_code, 403)
 
+    def test_non_staff_cannot_create_dataset(self):
+        non_staff = UserFactory(username='student', password='student')
+        self.client.login(username='student', password='student')
+        resp = self.client.post(reverse("data-list"), {
+            'name': 'student-dataset',
+            'file_name': faker.file_name(),
+            'type': Data.PUBLIC_DATA,
+            'request_sassy_file_name': faker.file_name(extension='.zip'),
+            'file_size': 1234,
+        })
+        self.assertEqual(resp.status_code, 403)
+
 
 class DatasetDeleteTests(APITestCase):
     def setUp(self):
-        self.user = UserFactory(username='user', password='user')
+        self.user = UserFactory(username='user', password='user', is_staff=True)
         self.other_user = UserFactory(username='other', password='other')
         self.client.login(username='user', password='user')
 

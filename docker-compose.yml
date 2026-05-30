@@ -223,10 +223,9 @@ services:
           # appear on Heroku ahead of time
           memory: 256M
 
-  compute_worker:
-    command: ["celery -A compute_worker worker -l info -Q compute-worker -n compute-worker@%n"]
+  compute_worker: &compute_worker_base
+    command: ["celery -A compute_worker worker -l info -Q compute-worker -n compute-worker@%n --concurrency=${COMPUTE_WORKER_CONCURRENCY:-1}"]
     working_dir: /app
-    container_name: compute_worker
     build:
       context: .
       dockerfile: packaging/container/Containerfile.compute_worker
@@ -238,7 +237,6 @@ services:
       - ${HOST_DIRECTORY:-/tmp/codabench}:/codabench
       # Actual connection back to docker parent to run things
       - /var/run/docker.sock:/var/run/docker.sock
-    hostname: local_worker
     restart: unless-stopped
     env_file: .env
     environment:
@@ -250,3 +248,36 @@ services:
       options:
         max-size: "20m"
         max-file: "5"
+
+  compute_worker_2:
+    <<: *compute_worker_base
+
+  compute_worker_3:
+    <<: *compute_worker_base
+
+  compute_worker_4:
+    <<: *compute_worker_base
+
+  compute_worker_5:
+    <<: *compute_worker_base
+
+  compute_worker_6:
+    <<: *compute_worker_base
+
+  compute_worker_7:
+    <<: *compute_worker_base
+
+  compute_worker_8:
+    <<: *compute_worker_base
+
+  compute_worker_9:
+    <<: *compute_worker_base
+
+  compute_worker_10:
+    <<: *compute_worker_base
+
+  compute_worker_11:
+    <<: *compute_worker_base
+
+  compute_worker_12:
+    <<: *compute_worker_base

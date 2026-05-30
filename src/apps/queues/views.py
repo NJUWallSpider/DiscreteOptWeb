@@ -1,6 +1,6 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
+from utils.permissions import StaffUserRequiredMixin
 
 
-class QueueManagementView(LoginRequiredMixin, TemplateView):
+class QueueManagementView(StaffUserRequiredMixin, TemplateView):
     template_name = 'queues/management.html'
