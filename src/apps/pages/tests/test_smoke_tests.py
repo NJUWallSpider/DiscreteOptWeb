@@ -3,6 +3,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
 
+from announcements.models import CourseResource, HomeAssignment, NewsPost
 from factories import CompetitionFactory, TaskFactory, UserFactory
 
 
@@ -23,11 +24,67 @@ class SmokeTests(TestCase):
         assert bytes(f'href="{competition.get_absolute_url()}"', "utf-8") in response.content
 
     def test_home_resources_use_box_url_when_configured(self):
+        CourseResource.objects.all().delete()
+
         with patch.dict("os.environ", {"COURSE_RESOURCES_BOX_URL": "https://box.nju.edu.cn/f/course-share"}, clear=False):
             response = self.client.get(reverse('pages:home'))
 
         assert response.status_code == 200
         assert response.content.count(b'href="https://box.nju.edu.cn/f/course-share"') == 4
+
+    def test_home_notice_board_uses_admin_news_posts(self):
+        NewsPost.objects.all().delete()
+
+        NewsPost.objects.create(
+            title="Assignment 4 released",
+            text="Submit before the deadline.",
+            link="https://example.com/assignment-4",
+        )
+
+        response = self.client.get(reverse('pages:home'))
+
+        assert response.status_code == 200
+        assert b"Assignment 4 released" in response.content
+        assert b"Submit before the deadline." in response.content
+        assert b"https://example.com/assignment-4" in response.content
+        assert b"Assignment 2 test cases have been updated" not in response.content
+
+    def test_home_assignments_use_admin_configured_entries(self):
+        HomeAssignment.objects.all().delete()
+
+        HomeAssignment.objects.create(
+            title="Assignment 4: Network Flows",
+            description="Due: June 1, 2026, 11:59 PM",
+            status_label="Open",
+            status_tone=HomeAssignment.ACTIVE,
+            icon="project diagram",
+            url="/competitions/assignment-4/",
+        )
+
+        response = self.client.get(reverse('pages:home'))
+
+        assert response.status_code == 200
+        assert b"Assignment 4: Network Flows" in response.content
+        assert b"Due: June 1, 2026, 11:59 PM" in response.content
+        assert b'href="/competitions/assignment-4/"' in response.content
+        assert b"Assignment 3: Graph Coloring Problem" not in response.content
+
+    def test_home_resources_use_admin_configured_entries(self):
+        CourseResource.objects.all().delete()
+
+        CourseResource.objects.create(
+            title="Lecture 1 Slides",
+            url="https://example.com/slides",
+            icon="file powerpoint outline",
+            color="#f2711c",
+        )
+
+        response = self.client.get(reverse('pages:home'))
+
+        assert response.status_code == 200
+        assert b"Lecture 1 Slides" in response.content
+        assert b'href="https://example.com/slides"' in response.content
+        assert b"Course Syllabus" not in response.content
 
     def test_student_home_hides_admin_navigation(self):
         student = UserFactory(username="student", password="test")

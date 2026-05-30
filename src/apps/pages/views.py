@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.views.generic import TemplateView
 
 from competitions.models import Competition, Submission
-from announcements.models import Announcement, NewsPost
+from announcements.models import Announcement, CourseResource, HomeAssignment, NewsPost
 
 from django.conf import settings
 from utils.data import pretty_bytes
@@ -67,9 +67,26 @@ DEFAULT_HOME_RESOURCES = [
 
 
 def build_home_assignments():
-    assignments = copy.deepcopy(DEFAULT_HOME_ASSIGNMENTS)
+    has_configured_assignments = HomeAssignment.objects.exists()
+    if has_configured_assignments:
+        assignments = [
+            {
+                "title": assignment.title,
+                "description": assignment.description,
+                "status_label": assignment.status_label,
+                "status_tone": assignment.status_tone,
+                "icon": assignment.icon,
+                "url": assignment.url.strip(),
+            }
+            for assignment in HomeAssignment.objects.filter(is_visible=True)
+        ]
+    else:
+        assignments = copy.deepcopy(DEFAULT_HOME_ASSIGNMENTS)
 
     for assignment in assignments:
+        if assignment.get("url"):
+            continue
+
         competition = Competition.objects.filter(
             published=True,
             title__iexact=assignment["title"],
@@ -80,6 +97,18 @@ def build_home_assignments():
 
 
 def build_home_resources():
+    has_configured_resources = CourseResource.objects.exists()
+    if has_configured_resources:
+        return [
+            {
+                "title": resource.title,
+                "icon": resource.icon,
+                "color": resource.color,
+                "url": resource.url.strip(),
+            }
+            for resource in CourseResource.objects.filter(is_visible=True)
+        ]
+
     resources = copy.deepcopy(DEFAULT_HOME_RESOURCES)
     shared_box_url = os.environ.get("COURSE_RESOURCES_BOX_URL", "").strip()
 
@@ -98,7 +127,7 @@ class HomeView(TemplateView):
         announcement = Announcement.objects.all().first()
         context['announcement'] = announcement.text if announcement else None
 
-        news_posts = NewsPost.objects.all().order_by('-id')
+        news_posts = NewsPost.objects.all().order_by('-created_when', '-id')
         context['news_posts'] = news_posts
         context['CONTACT_EMAIL'] = settings.CONTACT_EMAIL
         context['home_assignments'] = build_home_assignments()

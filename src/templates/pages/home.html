@@ -45,8 +45,20 @@
                     Notice Board & Latest Updates
                 </div>
                 <ul class="ui bulleted list" style="color: #444;">
-                    <li class="item"><strong>[Apr 10]</strong> Assignment 2 test cases have been updated. Please re-submit if you failed hidden case #4.</li>
-                    <li class="item"><strong>[Apr 01]</strong> Welcome to the Spring 2026 class! Please review the Course Syllabus before our first lecture.</li>
+                    {% for post in news_posts %}
+                        <li class="item">
+                            <strong>[{{ post.created_when|date:"M d" }}]</strong>
+                            {% if post.link %}
+                                <a href="{{ post.link }}" target="_blank" rel="noopener noreferrer">{{ post.title }}</a>
+                            {% else %}
+                                {{ post.title }}
+                            {% endif %}
+                            {% if post.text %}<span>{{ post.text }}</span>{% endif %}
+                        </li>
+                    {% empty %}
+                        <li class="item"><strong>[Apr 10]</strong> Assignment 2 test cases have been updated. Please re-submit if you failed hidden case #4.</li>
+                        <li class="item"><strong>[Apr 01]</strong> Welcome to the Spring 2026 class! Please review the Course Syllabus before our first lecture.</li>
+                    {% endfor %}
                 </ul>
             </div>
         </div>
