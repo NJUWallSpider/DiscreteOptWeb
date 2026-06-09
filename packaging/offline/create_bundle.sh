@@ -7,7 +7,12 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BUNDLE_NAME="${BUNDLE_NAME:-codabench-offline-$STAMP}"
 WORKDIR="$DIST_DIR/$BUNDLE_NAME"
 TARGET_PLATFORM="${TARGET_PLATFORM:-}"
-EXTRA_IMAGES="${EXTRA_IMAGES:-codalab/codalab-legacy:py312 codalab/codalab-legacy:py37}"
+APP_BASE_IMAGE="${APP_BASE_IMAGE:-}"
+DISCRETEOPT_RUNTIME_IMAGE="${DISCRETEOPT_RUNTIME_IMAGE:-discreteopt/runtime:py312}"
+DISCRETEOPT_RUNTIME_BASE_IMAGE="${DISCRETEOPT_RUNTIME_BASE_IMAGE:-codalab/codalab-legacy:py312}"
+DISCRETEOPT_RUNTIME_DOCKERFILE="${DISCRETEOPT_RUNTIME_DOCKERFILE:-packaging/runtime/Containerfile.discreteopt}"
+BUILD_DISCRETEOPT_RUNTIME="${BUILD_DISCRETEOPT_RUNTIME:-1}"
+EXTRA_IMAGES="${EXTRA_IMAGES:-codalab/codalab-legacy:py312}"
 ALLOW_MISSING_EXTRA_IMAGES="${ALLOW_MISSING_EXTRA_IMAGES:-0}"
 
 cd "$REPO_ROOT"
@@ -21,9 +26,19 @@ if [ -n "$TARGET_PLATFORM" ]; then
   export DOCKER_DEFAULT_PLATFORM="$TARGET_PLATFORM"
 fi
 
+if [ -z "$APP_BASE_IMAGE" ]; then
+  if [ "$TARGET_PLATFORM" = "linux/amd64" ]; then
+    APP_BASE_IMAGE="almalinux:9-minimal"
+  else
+    APP_BASE_IMAGE="almalinux:10-minimal"
+  fi
+fi
+export APP_BASE_IMAGE
+
 mkdir -p "$WORKDIR/app"
 
 echo "Building local project images..."
+echo "Using APP_BASE_IMAGE=$APP_BASE_IMAGE"
 docker compose build --pull
 
 echo "Pulling registry images used by docker-compose.yml..."
@@ -31,6 +46,23 @@ docker compose pull --ignore-buildable
 
 IMAGES_FILE="$WORKDIR/images.txt"
 docker compose config --images | sort -u > "$IMAGES_FILE"
+
+if [ "$BUILD_DISCRETEOPT_RUNTIME" = "1" ]; then
+  echo "Building DiscreteOpt benchmark runtime image: $DISCRETEOPT_RUNTIME_IMAGE"
+  runtime_build_args=(
+    --pull
+    -f "$DISCRETEOPT_RUNTIME_DOCKERFILE"
+    -t "$DISCRETEOPT_RUNTIME_IMAGE"
+    --build-arg "BASE_IMAGE=$DISCRETEOPT_RUNTIME_BASE_IMAGE"
+  )
+
+  if [ -n "$TARGET_PLATFORM" ]; then
+    runtime_build_args=(--platform "$TARGET_PLATFORM" "${runtime_build_args[@]}")
+  fi
+
+  docker build "${runtime_build_args[@]}" "$REPO_ROOT"
+  echo "$DISCRETEOPT_RUNTIME_IMAGE" >> "$IMAGES_FILE"
+fi
 
 for image in $EXTRA_IMAGES; do
   if docker image inspect "$image" >/dev/null 2>&1; then
@@ -72,7 +104,7 @@ rsync -a --delete \
   --exclude ".git" \
   --exclude ".DS_Store" \
   --exclude "node_modules" \
-  --exclude "dist/offline" \
+  --exclude "dist" \
   --exclude "var/postgres" \
   --exclude "var/minio" \
   --exclude "var/rabbit" \

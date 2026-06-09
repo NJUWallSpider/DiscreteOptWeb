@@ -1,0 +1,45 @@
+ARG BASE_IMAGE=codalab/codalab-legacy:py312
+FROM ${BASE_IMAGE}
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_NO_CACHE_DIR=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        cmake \
+        curl \
+        g++ \
+        gcc \
+        gfortran \
+        git \
+        glpk-utils \
+        libblas-dev \
+        libglpk-dev \
+        libgomp1 \
+        liblapack-dev \
+        libomp-dev \
+        libopenmpi-dev \
+        libtbb-dev \
+        make \
+        ninja-build \
+        openjdk-17-jdk-headless \
+        openmpi-bin \
+        pkg-config \
+        python3-dev \
+        python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY packaging/runtime/discreteopt-requirements.txt /tmp/discreteopt-requirements.txt
+
+RUN python3 -m pip install --upgrade pip setuptools wheel \
+    && python3 -m pip install -r /tmp/discreteopt-requirements.txt \
+    && rm -f /tmp/discreteopt-requirements.txt
+
+RUN gcc --version \
+    && g++ --version \
+    && javac -version \
+    && python3 -c "import cvxpy, dask, deap, highspy, joblib, mip, mpi4py, networkx, numba, numpy, ortools, pandas, pulp, pyomo, pyscipopt, scipy, sklearn, tqdm; print('discreteopt runtime imports ok')"

@@ -368,7 +368,7 @@ def unpack_competition(status_pk):
                     logger.info(f"Download competition bundle: {competition_dataset.data_file.name}")
                     competition_bundle_url = make_url_sassy(competition_dataset.data_file.url)
                     try:
-                        with requests.get(competition_bundle_url, stream=True) as r:
+                        with requests.get(competition_bundle_url, stream=True, timeout=(10, 300)) as r:
                             r.raise_for_status()
                             for chunk in r.iter_content(chunk_size=8192):
                                 temp_file.write(chunk)

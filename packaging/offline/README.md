@@ -16,6 +16,7 @@ The script creates a tarball under `dist/offline/` containing:
 - the working tree source code,
 - `.env` and compose configuration,
 - all Docker images referenced by `docker compose config --images`,
+- the DiscreteOpt benchmark runtime image `discreteopt/runtime:py312`,
 - extra benchmark runtime images such as `codalab/codalab-legacy:py312`,
 - a target-side `start-offline.sh` helper.
 
@@ -27,13 +28,42 @@ TARGET_PLATFORM=linux/amd64 ./packaging/offline/create_bundle.sh
 ```
 
 The image archive is architecture-specific. A bundle made from `linux/arm64`
-images will not run on an `amd64` server.
+images will not run on an `amd64` server. For `linux/amd64` offline bundles,
+the script defaults project service images to `almalinux:9-minimal` because
+`almalinux:10-minimal` requires the `x86-64-v3` CPU baseline and can fail under
+cross-platform Docker builds or on older servers. Override it only when you know
+the builder and target CPU support it:
+
+```bash
+APP_BASE_IMAGE=almalinux:10-minimal TARGET_PLATFORM=linux/amd64 \
+  ./packaging/offline/create_bundle.sh
+```
 
 If your competitions need additional runtime images, include them:
 
 ```bash
 EXTRA_IMAGES="codalab/codalab-legacy:py312 my-registry/my-image:tag" \
   ./packaging/offline/create_bundle.sh
+```
+
+The bundled DiscreteOpt runtime is built from
+`packaging/runtime/Containerfile.discreteopt`. It includes C/C++, Java,
+Python, OpenMPI, OpenMP/TBB support, and common optimization packages:
+`pyscipopt`, OR-Tools, Pyomo, PuLP, python-mip, HiGHS, CVXPY, NumPy, SciPy,
+NetworkX, Numba, DEAP, Joblib, Dask, and mpi4py.
+
+For optimization competitions, set the competition YAML/image field to:
+
+```yaml
+docker_image: discreteopt/runtime:py312
+```
+
+You can change the image tag or base image when building:
+
+```bash
+DISCRETEOPT_RUNTIME_IMAGE=your-org/discreteopt-runtime:2026-05 \
+DISCRETEOPT_RUNTIME_BASE_IMAGE=codalab/codalab-legacy:py312 \
+./packaging/offline/create_bundle.sh
 ```
 
 ## Start On The Offline Server

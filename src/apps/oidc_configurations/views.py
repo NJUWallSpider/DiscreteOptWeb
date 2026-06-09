@@ -129,7 +129,7 @@ def get_access_token(organization, authorization_code):
     }
 
     try:
-        response = requests.request("POST", token_url, data=data, headers=headers)
+        response = requests.request("POST", token_url, data=data, headers=headers, timeout=30)
         response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
         token_data = response.json()
         access_token = token_data.get('access_token')
@@ -150,7 +150,7 @@ def get_user_info(organization, access_token):
         'Authorization': f'Bearer {access_token}',
     }
 
-    response = requests.get(user_info_url, headers=headers)
+    response = requests.get(user_info_url, headers=headers, timeout=30)
 
     try:
         user_info = response.json()

@@ -1,5 +1,29 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils.timezone import now
+from urllib.parse import urlparse
+
+
+def validate_home_link(value):
+    if not value:
+        return
+
+    parsed = urlparse(value)
+    if parsed.scheme and parsed.scheme not in ("http", "https", "mailto"):
+        raise ValidationError("Use an http(s), mailto, or site-relative URL.")
+    if not parsed.scheme and (parsed.netloc or not value.startswith("/")):
+        raise ValidationError("Relative URLs must start with '/'.")
+
+
+def validate_hex_color(value):
+    if not value:
+        return
+    if not value.startswith("#") or len(value) not in (4, 7):
+        raise ValidationError("Use a hex color such as #f2711c.")
+    try:
+        int(value[1:], 16)
+    except ValueError as exc:
+        raise ValidationError("Use a hex color such as #f2711c.") from exc
 
 
 class Announcement(models.Model):
@@ -41,6 +65,10 @@ class HomeAssignment(models.Model):
     def __str__(self):
         return self.title
 
+    def clean(self):
+        super().clean()
+        validate_home_link(self.url)
+
 
 class CourseResource(models.Model):
     title = models.CharField(max_length=120)
@@ -55,3 +83,8 @@ class CourseResource(models.Model):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        super().clean()
+        validate_home_link(self.url)
+        validate_hex_color(self.color)

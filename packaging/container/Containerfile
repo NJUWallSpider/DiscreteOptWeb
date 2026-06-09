@@ -1,4 +1,5 @@
-FROM almalinux:10-minimal
+ARG APP_BASE_IMAGE=almalinux:10-minimal
+FROM ${APP_BASE_IMAGE}
 
 RUN microdnf install -y tar gzip
 

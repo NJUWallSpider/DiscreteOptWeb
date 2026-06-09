@@ -85,7 +85,7 @@ except Exception:
 
 def md5(filename):
     """Given some file return its md5, works well on large files"""
-    hash_md5 = hashlib.md5()
+    hash_md5 = hashlib.md5(usedforsecurity=False)
     with open(filename, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)

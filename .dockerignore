@@ -4,3 +4,4 @@ certs
 bin
 artifacts
 .pytest_cache
+dist

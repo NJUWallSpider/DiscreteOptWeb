@@ -108,8 +108,7 @@ class DatasetDetail(DetailView):
 def download(request, key):
     data = get_object_or_404(Data, key=key)
     if not user_can_download(request.user, data):
-        if request.user.is_authenticated:
-            raise PermissionDenied()
+        # Downloads by key should not reveal whether a private dataset exists.
         raise Http404()
     return HttpResponseRedirect(make_url_sassy(data.data_file.name))
 

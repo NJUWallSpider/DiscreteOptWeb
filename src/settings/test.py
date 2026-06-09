@@ -23,6 +23,7 @@ STORAGES["staticfiles"] = {
 
 # Must override this so djdt doesn't screw up tests
 DEBUG_TOOLBAR_CONFIG = {
-    "SHOW_TOOLBAR_CALLBACK": lambda request: False
+    "SHOW_TOOLBAR_CALLBACK": lambda request: False,
+    "IS_RUNNING_TESTS": False,
 }
 IS_TESTING = True

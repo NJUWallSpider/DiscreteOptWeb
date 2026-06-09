@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
     ports:
       - 80:80
-      - 443:443
+      # - 443:443  # Uncomment for HTTPS
     depends_on:
       - django
 
@@ -26,6 +26,8 @@ services:
     build: 
       context: .
       dockerfile: packaging/container/Containerfile
+      args:
+        APP_BASE_IMAGE: ${APP_BASE_IMAGE:-almalinux:10-minimal}
     image: django_site-worker
     # NOTE: We use watchmedo to reload gunicorn nicely, Uvicorn + Gunicorn reloads don't work well
     command: ["python manage.py migrate --no-input && python manage.py collectstatic --no-input && cd /app/src && watchmedo auto-restart -p '*.py' --recursive -- python3 ./gunicorn_run.py"]
@@ -229,6 +231,8 @@ services:
     build:
       context: .
       dockerfile: packaging/container/Containerfile.compute_worker
+      args:
+        APP_BASE_IMAGE: ${APP_BASE_IMAGE:-almalinux:10-minimal}
     depends_on:
       - django
       - rabbit

@@ -1,0 +1,27 @@
+# Core scientific Python
+numpy
+scipy
+pandas
+scikit-learn
+networkx
+tqdm
+
+# Integer programming and mathematical optimization
+pyscipopt
+ortools
+pyomo
+pulp
+mip
+highspy
+cvxpy
+
+# Heuristic and metaheuristic building blocks
+numba
+deap
+simanneal
+
+# Parallel and distributed execution helpers
+joblib
+loky
+dask[distributed]
+mpi4py

@@ -29,6 +29,7 @@ celerybeat-schedule-wal
 celerybeat-schedule.db
 package-lock.json
 artifacts/
+dist/
 
 docker-compose.override.yml
 compose.override.yml
@@ -46,4 +47,3 @@ caddy_data/
 home_page_counters.json
 my-postgres.conf
 tests/config/state.json
-

@@ -84,7 +84,28 @@ class SmokeTests(TestCase):
         assert response.status_code == 200
         assert b"Lecture 1 Slides" in response.content
         assert b'href="https://example.com/slides"' in response.content
-        assert b"Course Syllabus" not in response.content
+        assert b"Lecture Slides & Notes" not in response.content
+
+    def test_home_admin_configured_links_are_sanitized(self):
+        HomeAssignment.objects.all().delete()
+        CourseResource.objects.all().delete()
+
+        HomeAssignment.objects.create(
+            title="Unsafe Assignment Link",
+            url="javascript:alert(1)",
+        )
+        CourseResource.objects.create(
+            title="Unsafe Resource Link",
+            url="//example.com/resource",
+            color="not-a-color",
+        )
+
+        response = self.client.get(reverse('pages:home'))
+
+        assert response.status_code == 200
+        assert b"javascript:alert" not in response.content
+        assert b"//example.com/resource" not in response.content
+        assert b'color: #1a364d;' in response.content
 
     def test_student_home_hides_admin_navigation(self):
         student = UserFactory(username="student", password="test")

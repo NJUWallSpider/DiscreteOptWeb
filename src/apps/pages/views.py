@@ -1,5 +1,6 @@
 import copy
 import os
+from urllib.parse import urlparse
 
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.db.models import Q
@@ -66,6 +67,30 @@ DEFAULT_HOME_RESOURCES = [
 ]
 
 
+def sanitize_home_link(url):
+    url = (url or "").strip()
+    if not url:
+        return ""
+
+    parsed = urlparse(url)
+    if parsed.scheme in ("http", "https", "mailto"):
+        return url
+    if not parsed.scheme and not parsed.netloc and url.startswith("/"):
+        return url
+    return ""
+
+
+def sanitize_hex_color(color):
+    color = (color or "").strip()
+    if color.startswith("#") and len(color) in (4, 7):
+        try:
+            int(color[1:], 16)
+        except ValueError:
+            return "#1a364d"
+        return color
+    return "#1a364d"
+
+
 def build_home_assignments():
     has_configured_assignments = HomeAssignment.objects.exists()
     if has_configured_assignments:
@@ -76,7 +101,7 @@ def build_home_assignments():
                 "status_label": assignment.status_label,
                 "status_tone": assignment.status_tone,
                 "icon": assignment.icon,
-                "url": assignment.url.strip(),
+                "url": sanitize_home_link(assignment.url),
             }
             for assignment in HomeAssignment.objects.filter(is_visible=True)
         ]
@@ -103,8 +128,8 @@ def build_home_resources():
             {
                 "title": resource.title,
                 "icon": resource.icon,
-                "color": resource.color,
-                "url": resource.url.strip(),
+                "color": sanitize_hex_color(resource.color),
+                "url": sanitize_home_link(resource.url),
             }
             for resource in CourseResource.objects.filter(is_visible=True)
         ]

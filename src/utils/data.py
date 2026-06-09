@@ -110,14 +110,16 @@ def make_url_sassy(path, permission='r', duration=60 * 60 * 24 * 5, content_type
 
 
 def put_blob(url, file_path):
-    return requests.put(
-        url,
-        data=open(file_path, 'rb'),
-        headers={
-            # Only for Azure but AWS ignores this fine
-            'x-ms-blob-type': 'BlockBlob',
-        }
-    )
+    with open(file_path, 'rb') as file_obj:
+        return requests.put(
+            url,
+            data=file_obj,
+            headers={
+                # Only for Azure but AWS ignores this fine
+                'x-ms-blob-type': 'BlockBlob',
+            },
+            timeout=(10, 300),
+        )
 
 
 def pretty_bytes(bytes, decimal_places=1, suffix="B", binary=False, return_0_for_invalid=False):
