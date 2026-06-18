@@ -377,6 +377,7 @@ class CompetitionDetailSerializer(serializers.ModelSerializer):
     submissions_count = serializers.IntegerField(read_only=True)
     queue = QueueSerializer(read_only=True)
     whitelist_emails = serializers.SerializerMethodField()
+    can_access_files = serializers.SerializerMethodField()
 
     class Meta:
         model = Competition
@@ -417,7 +418,8 @@ class CompetitionDetailSerializer(serializers.ModelSerializer):
             'contact_email',
             'report',
             'whitelist_emails',
-            'forum_enabled'
+            'forum_enabled',
+            'can_access_files',
         )
 
     def get_leaderboards(self, instance):
@@ -434,6 +436,17 @@ class CompetitionDetailSerializer(serializers.ModelSerializer):
         whitelist_emails_query = instance.whitelist_emails.all()
         whitelist_emails_list = [entry.email for entry in whitelist_emails_query]
         return whitelist_emails_list
+
+    def get_can_access_files(self, instance):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        if instance.user_has_admin_permission(request.user):
+            return True
+        return instance.participants.filter(
+            user=request.user,
+            status=CompetitionParticipant.APPROVED,
+        ).exists()
 
     def get_owner_display_name(self, obj):
         # Get the user's display name if not None, otherwise return username
